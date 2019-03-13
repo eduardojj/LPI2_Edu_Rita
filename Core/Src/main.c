@@ -64,6 +64,7 @@ struct func{
 	int n_args;
 	char* args[3];
 }typedef func_t;
+int FILTER_FLAG;
 
 enum comando{
 	MR,
@@ -74,7 +75,13 @@ enum comando{
 	WD,
 	RA,
 	VR,
-	NF
+	SP,
+	AC,
+	S,
+	NF,
+	ST,
+	FF,
+	FN
 }command;
 
 int memory_read(func_t func);
@@ -85,6 +92,9 @@ int digital_read(func_t func);
 int digital_write(func_t func);
 int analog_read(func_t func);
 int version(func_t func);
+int sample_config(func_t func);
+int adc_config(func_t func);
+int sample(func_t func);
 
 typedef int(*func_exec)(func_t );
 
@@ -97,6 +107,9 @@ static func_exec func_execute[] = {
     &digital_write,
     &analog_read,
 		&version,
+		&sample_config,
+		&adc_config,
+		&sample,
     NULL};
 
 
@@ -141,6 +154,18 @@ enum comando get_command(char* str){
 		command = RA;
 	if(!strcmp(str, "VER"))
 		command = VR;
+	if(!strcmp(str, "SP"))
+		command = SP;
+	if(!strcmp(str, "AC"))
+		command = AC;
+	if(!strcmp(str, "FN"))
+		command = FN;
+	if(!strcmp(str, "FF"))
+		command = FF;
+	if(!strcmp(str, "S"))
+		command = S;
+	if(!strcmp(str, "ST"))
+		command = ST;
 	return command;
 }
 void code_exec(char* str){
@@ -153,6 +178,21 @@ void code_exec(char* str){
 	if(command == NF){
 		printf("Invalid command\r\n");
 		return;
+	}
+	else if(command > NF){
+		switch((int)command){
+			//ST
+			case 12:
+				break;
+			//FF
+			case 13:
+				FILTER_FLAG = 0;
+				break;
+			//FN
+			case 14:
+				FILTER_FLAG = 1;
+				break;
+		}
 	}
 	get_arg(&function, str);
 	
@@ -515,6 +555,27 @@ int version(func_t func){
 	printf("v1.0, grupo 12 ==> Eduardo Sousa e Rita Rodrigues\r\n");
 	return 1;
 }
+
+int sample_config(func_t func){
+	float period;
+	int val_reload;
+	
+	period = strtol(func.args[1],&ptr, 10);
+	
+	if(strcmp(func.args[0], "ms")){
+		period = period/1000;
+	}
+	else if(strcmp(func.args[0], "micro")){
+		period = period/100000;
+	}
+	
+	val_reload = (period*108000000)/864;
+	
+}
+	
+int adc_config(func_t func){}
+	
+int sample(func_t func){}
 /* USER CODE END 0 */
 
 /**
