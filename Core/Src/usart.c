@@ -175,6 +175,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
 			return;
 		}
 		else if(UART3Rx_Buffer[UART3Rx_index] == CR){
+			UART3Rx_Buffer[UART3Rx_index] = 0x20;
 			UART3Rx_index = 0;
 			end_flag = 1;
 			HAL_UART_Receive_IT(&huart3, &UART3Rx_Buffer[UART3Rx_index], 1);
@@ -217,7 +218,9 @@ int messageReceived(){
 	}
 	else if (end_flag){
 		end_flag = 0;
+		memset((char*)Rx_Buffer, NULL, sizeof(Rx_Buffer));
 		strcpy((char*)Rx_Buffer, (char*)UART3Rx_Buffer);
+		memset((char*)UART3Rx_Buffer, NULL, sizeof(UART3Rx_Buffer));
 		return 1;
 	}
 return 0;

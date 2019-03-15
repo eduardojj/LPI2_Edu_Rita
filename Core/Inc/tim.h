@@ -52,17 +52,28 @@
 /* USER CODE END Includes */
 
 extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN Private defines */
-
+extern TIM_HandleTypeDef htim2;
+extern uint8_t k_values;
+extern uint8_t FILTER_FLAG;
+extern uint8_t FUNC_FLAG;
+extern uint32_t x[128];
+extern uint32_t y[128];
+extern uint8_t x_windex;
+extern uint8_t x_rindex;
+extern uint8_t y_windex;
+extern uint8_t y_rindex;
 /* USER CODE END Private defines */
 
 extern void _Error_Handler(char *, int);
 
 void MX_TIM2_Init(void);
+void MX_TIM3_Init(uint32_t reload);
                         
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                    
+                                        
 /* USER CODE BEGIN Prototypes */
 
 /* USER CODE END Prototypes */
