@@ -58,13 +58,14 @@
 /* Private variables ---------------------------------------------------------*/
 
 char delim = 0x20;
+char *ms = "ms";
+char *micro = "micro";
 char *ptr;
 char str[128];
 struct func{
 	int n_args;
 	char* args[3];
 }typedef func_t;
-int FILTER_FLAG;
 
 enum comando{
 	MR,
@@ -121,7 +122,9 @@ static void MX_NVIC_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+void get_arg(func_t* f, char* str);
+enum comando get_command(char* s);
+void code_exec(char* str);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -129,52 +132,54 @@ void get_arg(func_t* f, char* str){
 	int i=0;
 	char *pt;
 	pt = strtok(str, &delim);
-	while(pt){
+	while(i < 3){
 		pt = strtok(NULL, &delim);
 		f->args[i] = pt;
 		i++;
 	}
 	return; 
 }
-enum comando get_command(char* str){
-	enum comando command = NF;
-	if(!strcmp(str, "MR"))
+enum comando get_command(char* s){
+	enum comando command;
+	if(!strcmp(s, "MR"))
 		command = MR;
-	if(!strcmp(str, "MW"))
+	if(!strcmp(s, "MW"))
 		command = MW;
-	if(!strcmp(str, "MI"))
+	if(!strcmp(s, "MI"))
 		command = MI;
-	if(!strcmp(str, "MO"))
+	if(!strcmp(s, "MO"))
 		command = MO;
-	if(!strcmp(str, "RD"))
+	if(!strcmp(s, "RD"))
 		command = RD;
-	if(!strcmp(str, "WD"))
+	if(!strcmp(s, "WD"))
 		command = WD;
-	if(!strcmp(str, "RA"))
+	if(!strcmp(s, "RA"))
 		command = RA;
-	if(!strcmp(str, "VER"))
+	if(!strcmp(s, "VER"))
 		command = VR;
-	if(!strcmp(str, "SP"))
+	if(!strcmp(s, "SP"))
 		command = SP;
-	if(!strcmp(str, "AC"))
+	if(!strcmp(s, "AC"))
 		command = AC;
-	if(!strcmp(str, "FN"))
+	if(!strcmp(s, "FN"))
 		command = FN;
-	if(!strcmp(str, "FF"))
+	if(!strcmp(s, "FF"))
 		command = FF;
-	if(!strcmp(str, "S"))
+	if(!strcmp(s, "S"))
 		command = S;
-	if(!strcmp(str, "ST"))
+	if(!strcmp(s, "ST"))
 		command = ST;
 	return command;
 }
 void code_exec(char* str){
 	char aux[2];
 	enum comando command;
+	command = NF;
 	func_t function;
 	strcpy(aux, str);
 	strtok(aux, &delim);
 	command = get_command(aux);
+	get_arg(&function, str);
 	if(command == NF){
 		printf("Invalid command\r\n");
 		return;
@@ -183,20 +188,25 @@ void code_exec(char* str){
 		switch((int)command){
 			//ST
 			case 12:
+				HAL_TIM_Base_Stop_IT(&htim3);
+				HAL_ADC_Stop(&hadc1);
 				break;
 			//FF
 			case 13:
+				printf("Filter off\r\n");
 				FILTER_FLAG = 0;
 				break;
 			//FN
 			case 14:
+				printf("Filter on\r\n");
 				FILTER_FLAG = 1;
 				break;
 		}
 	}
-	get_arg(&function, str);
+	else 
+		func_execute[command](function);
 	
-	func_execute[command](function);
+	memset(function.args, NULL, sizeof(function.args));
 	return;
 }
 
@@ -560,22 +570,45 @@ int sample_config(func_t func){
 	float period;
 	int val_reload;
 	
+	printf("_______Sample Config_______\r\n");
+	
 	period = strtol(func.args[1],&ptr, 10);
 	
-	if(strcmp(func.args[0], "ms")){
+	if(!strcmp(func.args[0], ms)){
 		period = period/1000;
 	}
-	else if(strcmp(func.args[0], "micro")){
-		period = period/100000;
+	else if(!strcmp(func.args[0], micro)){
+		period = period/1000000;
 	}
 	
 	val_reload = (period*108000000)/864;
 	
+	MX_TIM3_Init(val_reload);
+	
+	return 1;
 }
 	
-int adc_config(func_t func){}
+int adc_config(func_t func){
+	uint8_t channel;
 	
-int sample(func_t func){}
+	printf("_______ADC Config_______\r\n");
+	
+	channel = strtol(func.args[0], &ptr, 10);
+	
+	MX_ADC1_Init(channel);
+	return 1;
+}
+	
+int sample(func_t func){
+	
+	printf("_______Sampling_______\r\n");
+	if (func.args[0] != NULL)
+	k_values = strtol(func.args[0], &ptr, 10);
+	else k_values = 0;
+	HAL_ADC_Start(&hadc1);
+	HAL_TIM_Base_Start_IT(&htim3);
+	return 1;
+}
 /* USER CODE END 0 */
 
 /**
@@ -608,9 +641,10 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
-  MX_ADC1_Init();
+  MX_ADC1_Init(1);
   MX_DAC_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init(62499);
 
   /* Initialize interrupts */
   MX_NVIC_Init();
@@ -619,7 +653,6 @@ int main(void)
 	init_UART3();
 	printf("Hello STM32\r\n");
 	printf(">");
-	HAL_TIMEx_OCN_Start_IT(&htim2,1);
 //	printf("This is a echo program made with HAL API\r\n");
 //	printf("Type a message and press enter\r\n");
 
@@ -725,6 +758,9 @@ void SystemClock_Config(void)
   */
 static void MX_NVIC_Init(void)
 {
+  /* TIM3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(TIM3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TIM3_IRQn);
   /* TIM2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(TIM2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(TIM2_IRQn);
