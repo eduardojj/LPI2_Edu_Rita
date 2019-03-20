@@ -43,53 +43,95 @@
 /* USER CODE BEGIN 0 */
 #include "adc.h"
 #include "dac.h"
-#define LEDBLUE GPIOB,GPIO_PIN_7
+#define LEDBLUE GPIOB,GPIO_PIN_6
 
+float b[] = {0.0375, 0.0588, 0.0796, 0.0980, 0.1125, 0.1218, 0.1250, 0.1218, 0.1125, 0.0980, 0.0796, 0.0588, 0.0375};
+uint8_t idx = 0;
 uint8_t FILTER_FLAG = 0;
 uint8_t FUNC_FLAG = 0;
-uint32_t x[128];
-uint8_t x_windex = 128;
-uint8_t x_rindex = 128;
-uint8_t y_windex = 128;
-uint8_t y_rindex = 128;
+uint8_t PERIOD_FLAG = 0;
+uint32_t x[16];
+uint8_t x_windex = 0;
+uint8_t x_rindex = 0;
+uint8_t y_windex = 0;
+uint8_t y_rindex = 0;
 uint8_t k_values = 0;
 uint32_t value;
-uint32_t y[128];
+uint32_t y[16];
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if (htim->Instance == TIM3){
 	HAL_GPIO_TogglePin(LEDBLUE);
+//	PERIOD_FLAG = 1;
 	if(FILTER_FLAG == 0){
 		if (k_values > 0){
 			while(k_values != 0){
+				HAL_ADC_Start(&hadc1);
 				value = HAL_ADC_GetValue(&hadc1);
 				k_values--;
+				if(k_values == 0)
+					HAL_TIM_Base_Stop_IT(&htim3);
 			}
 		}
 		else{
+			HAL_ADC_Start(&hadc1);
 			value = HAL_ADC_GetValue(&hadc1);
-			HAL_DAC_SetValue(&hdac, 1, 1, value);
+			HAL_DAC_Start(&hdac, DAC1_CHANNEL_1);
+			HAL_DAC_SetValue(&hdac, DAC1_CHANNEL_1, DAC_ALIGN_12B_R, value);
 		}
 	}
 	else{
 		if (k_values > 0){
+			HAL_ADC_Start(&hadc1);
 			value = HAL_ADC_GetValue(&hadc1);
 			x[x_windex] = value;
-			x_windex--;
-			x_windex &= ~(1<<7);
+			x_windex++;
+			x_windex &= ~(1<<1);
+			//y[y_rindex] = 0.4*y[y_rindex + 1] + 0.6*x[x_rindex + 1];
+			Filter_FIR();
+			y_rindex++;
+			x_rindex++;
+			x_rindex &= ~(1<<1);
+			y_rindex &= ~(1<<1);
 			k_values--;
+			HAL_DAC_Start(&hdac, DAC1_CHANNEL_1);
+			HAL_DAC_SetValue(&hdac, DAC1_CHANNEL_1, DAC_ALIGN_12B_R, y[y_rindex]);
+			y_windex++;
+			y_windex &= ~(1<<1);
+			if(k_values == 0)
+				HAL_TIM_Base_Stop_IT(&htim3);
 		}
 		else{
+			HAL_ADC_Start(&hadc1);
 			value = HAL_ADC_GetValue(&hadc1);
 			x[x_windex] = value;
-			x_windex--;
-			x_windex &= ~(1<<7);
+			x_windex++;
+			x_windex &= ~(1<<1);
+			//y[n] = ay[n -1]+ (1- a)x[n -1]
+			//y[y_rindex] = 0.4*y[y_rindex + 1] + 0.6*x[x_rindex + 1];
+			Filter_FIR();
+			y_rindex++;
+			x_rindex++;
+			x_rindex &= ~(1<<1);
+			y_rindex &= ~(1<<1);
+			HAL_DAC_Start(&hdac, DAC1_CHANNEL_1);
+			HAL_DAC_SetValue(&hdac, DAC1_CHANNEL_1, DAC_ALIGN_12B_R, y[y_rindex]);
+			y_windex--;
+			y_windex &= ~(1<<1);
 		}
-		if(k_values == 0)
-		HAL_TIM_Base_Stop_IT(&htim2);
 	}
+	HAL_GPIO_TogglePin(LEDBLUE);
 	return;
 	}
+}
+
+void Filter_FIR(){
+	int aux = 0;
+	for(int i = 0; i<14; i++){
+	y[y_rindex] = b[i]*x[x_rindex - i] + aux;
+	aux = y[y_rindex];
+	}
+	return;
 }
 
 /* USER CODE END 0 */
@@ -153,7 +195,7 @@ void MX_TIM3_Init(uint32_t reload)
   TIM_OC_InitTypeDef sConfigOC;
 
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 863;
+  htim3.Init.Prescaler = 431;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = reload;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;

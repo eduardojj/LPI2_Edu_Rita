@@ -49,7 +49,7 @@
 ADC_HandleTypeDef hadc1;
 
 /* ADC1 init function */
-void MX_ADC1_Init(uint32_t channel)
+void MX_ADC1_Init(uint8_t channel)
 {
   ADC_ChannelConfTypeDef sConfig;
 
