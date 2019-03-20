@@ -56,6 +56,7 @@
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+#define LEDBLUE GPIOB,GPIO_PIN_7
 
 char delim = 0x20;
 char *ms = "ms";
@@ -190,6 +191,8 @@ void code_exec(char* str){
 			case 12:
 				HAL_TIM_Base_Stop_IT(&htim3);
 				HAL_ADC_Stop(&hadc1);
+				memset(&x, 0, sizeof(x));
+				memset(&y, 0, sizeof(y));
 				break;
 			//FF
 			case 13:
@@ -581,7 +584,7 @@ int sample_config(func_t func){
 		period = period/1000000;
 	}
 	
-	val_reload = (period*108000000)/864;
+	val_reload = (period*108000000)/htim3.Init.Prescaler;
 	
 	MX_TIM3_Init(val_reload);
 	
@@ -602,10 +605,13 @@ int adc_config(func_t func){
 int sample(func_t func){
 	
 	printf("_______Sampling_______\r\n");
+	
 	if (func.args[0] != NULL)
-	k_values = strtol(func.args[0], &ptr, 10);
-	else k_values = 0;
-	HAL_ADC_Start(&hadc1);
+		k_values = strtol(func.args[0], &ptr, 10);
+	else
+		k_values = 0;
+	
+
 	HAL_TIM_Base_Start_IT(&htim3);
 	return 1;
 }
@@ -644,7 +650,7 @@ int main(void)
   MX_ADC1_Init(1);
   MX_DAC_Init();
   MX_TIM2_Init();
-  MX_TIM3_Init(62499);
+  MX_TIM3_Init(59999);
 
   /* Initialize interrupts */
   MX_NVIC_Init();
@@ -653,6 +659,8 @@ int main(void)
 	init_UART3();
 	printf("Hello STM32\r\n");
 	printf(">");
+	memset(&x, 0, sizeof(x));
+	memset(&y, 0, sizeof(y));
 //	printf("This is a echo program made with HAL API\r\n");
 //	printf("Type a message and press enter\r\n");
 
